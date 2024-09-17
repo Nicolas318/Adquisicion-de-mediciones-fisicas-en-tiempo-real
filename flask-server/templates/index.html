@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Actividad de Raqueta</title>
+    <link rel="stylesheet" href="../static/styles.css">
+    <link rel="icon" type="image/x-icon" href="../static/uvaLogo.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Monitor de Actividad de Raqueta</h1>
+    
+        <div class="buttons-area">
+            <div class="button-container">
+                <div class="button-wrapper">
+                    <button id="startButton" onclick="sendCommand('start')">COMENZAR</button>
+                </div>
+                <div class="temp-container button-wrapper tiempo">
+                    <button id="startButtonTemp" onclick="sendCommand('start_temp')">COMENZAR TEMPORIZADO</button>
+                    <label for="time">Nº seg:</label>
+                    <input type="number" id="time" name="time" min="1" value="10">
+                </div>
+                <div class="button-wrapper">
+                    <button id="stopButton" onclick="sendCommand('stop')">PARAR</button>
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            <h2>Temporizador: <span id="minutes">0</span> minutos <span id="seconds">0</span> segundos</h2>
+        </div>
+
+        <div class="chart-buttons">
+            <div class="button-wrapper">
+                <button id="PreScanButton" onclick="preScan()">TESTEAR SENSORES</button>
+            </div>
+            <div class="button-wrapper">
+                <button id="PostScanButton" onclick="postScan()">COMPROBAR DATOS</button>
+            </div>
+            <div class="button-wrapper hidden" id="saveFileContainer">
+                <label for="fileName">Nombre del archivo:</label>
+                <input type="text" id="fileName" name="fileName" placeholder="Nombre del archivo">
+                <button id="saveFileButton" onclick="saveFile()">GUARDAR</button>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-wrapper">
+                <canvas id="chart1"></canvas>
+                <div id="chart1-buttons">
+                    <button onclick="toggleDatasetVisibility(chart1, 0)">Toggle Accelerometro X</button>
+                    <button onclick="toggleDatasetVisibility(chart1, 1)">Toggle Accelerometro Y</button>
+                    <button onclick="toggleDatasetVisibility(chart1, 2)">Toggle Accelerometro Z</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="chart2"></canvas>
+                <div id="chart2-buttons">
+                    <button onclick="toggleDatasetVisibility(chart2, 0)">Toggle Giroscopio X</button>
+                    <button onclick="toggleDatasetVisibility(chart2, 1)">Toggle Giroscopio Y</button>
+                    <button onclick="toggleDatasetVisibility(chart2, 2)">Toggle Giroscopio Z</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let countdownInterval;
+        let startButton = document.getElementById('startButton');
+        let startButtonTemp = document.getElementById('startButtonTemp');
+        let stopButton = document.getElementById('stopButton');
+        Chart.defaults.color = '#000';
+        
+        function sendCommand(command) {
+            const time = document.getElementById('time').value;
+            fetch(`/command?cmd=${command}&time=${time}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.message);
+                    if(command === 'start'){
+                        disableButtons();
+                    }else if (command === 'start_temp') {
+                        startCountdown(time);
+                        disableButtons();
+                    } else if (command === 'stop') {
+                        resetCountdown();
+                        enableButtons();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function startCountdown(duration) {
+            clearInterval(countdownInterval);
+            let totalSeconds = duration;
+            let minutes = Math.floor(totalSeconds / 60);
+            let seconds = totalSeconds % 60;
+
+            document.getElementById('minutes').innerText = minutes;
+            document.getElementById('seconds').innerText = seconds;
+
+            countdownInterval = setInterval(() => {
+                totalSeconds--;
+
+                minutes = Math.floor(totalSeconds / 60);
+                seconds = totalSeconds % 60;
+
+                document.getElementById('minutes').innerText = minutes;
+                document.getElementById('seconds').innerText = seconds;
+
+                if (totalSeconds <= 0) {
+                    clearInterval(countdownInterval);
+                    enableButtons();
+                }
+            }, 1000);
+        }
+
+        function resetCountdown() {
+            clearInterval(countdownInterval);
+            document.getElementById('minutes').innerText = '0';
+            document.getElementById('seconds').innerText = '0';
+        }
+
+        function disableButtons() {
+            startButton.disabled = true;
+            startButtonTemp.disabled = true;
+            stopButton.disabled = false;
+        }
+
+        function enableButtons() {
+            startButton.disabled = false;
+            startButtonTemp.disabled = false;
+            stopButton.disabled = false;
+        }
+
+        if (document.getElementById('minutes').innerText !== '0' || document.getElementById('seconds').innerText !== '0') {
+            disableButtons();
+        }
+
+        function preScan() {
+            startCountdown(10);
+            disableButtons();
+            fetch('/test_sensors')
+                .then(response => response.json())
+                .then(data => {
+                    const labels = [];
+                    const datasets = [[], [], [], [], [], []];
+
+                    data.forEach(entry => {
+                        labels.push(entry[6] / 1000); 
+                        datasets[0].push(entry[0])
+                        datasets[1].push(entry[1])
+                        datasets[2].push(entry[2])
+                        datasets[3].push(entry[3])
+                        datasets[4].push(entry[4])
+                        datasets[5].push(entry[5])
+                    });
+
+                    chart1.data.labels = labels;
+                    chart2.data.labels = labels;
+                    chart1.data.datasets[0].data = datasets[0];
+                    chart1.data.datasets[1].data = datasets[1];
+                    chart1.data.datasets[2].data = datasets[2];
+                    chart2.data.datasets[0].data = datasets[3];
+                    chart2.data.datasets[1].data = datasets[4];
+                    chart2.data.datasets[2].data = datasets[5];
+                    chart1.update();
+                    chart2.update();
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function postScan() {
+            fetch('/check_data')
+                .then(response => response.json())
+                .then(data => {
+                    const labels = [];
+                    const datasets = [[], [], [], [], [], []];
+
+                    data.forEach(entry => {
+                        labels.push(entry[0] / 1000); 
+                        datasets[0].push(entry[1])
+                        datasets[1].push(entry[2])
+                        datasets[2].push(entry[3])
+                        datasets[3].push(entry[4])
+                        datasets[4].push(entry[5])
+                        datasets[5].push(entry[6])
+                    });
+
+                    chart1.data.labels = labels;
+                    chart2.data.labels = labels;
+                    chart1.data.datasets[0].data = datasets[0];
+                    chart1.data.datasets[1].data = datasets[1];
+                    chart1.data.datasets[2].data = datasets[2];
+                    chart2.data.datasets[0].data = datasets[3];
+                    chart2.data.datasets[1].data = datasets[4];
+                    chart2.data.datasets[2].data = datasets[5];
+                    chart1.update();
+                    chart2.update();
+
+                    // Mostrar el contenedor del botón y el campo de texto
+                    saveFileContainer.classList.remove('hidden');
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function saveFile() {
+            const fileName = document.getElementById('fileName').value;
+            if (fileName) {
+                saveFileContainer.classList.add('hidden');
+                fetch(`/download_csv?filename=${fileName}`)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        saveAs(blob, `${fileName}.csv`);
+                    })
+                    .catch(error => console.error('Error:', error));
+            } else {
+                alert('Por favor, introduzca un nombre para el archivo.');
+            }
+        }
+
+
+        function toggleDatasetVisibility(chart, datasetIndex) {
+            const dataset = chart.data.datasets[datasetIndex];
+            dataset.hidden = !dataset.hidden;
+            chart.update();
+        }
+        const colorsAccel = [
+            'rgba(2, 119, 189, 1)',    // Acceleración X: Azul oscuro
+            'rgba(76, 175, 80, 1)',    // Acceleración Y: Verde
+            'rgba(255, 87, 51, 1)'    // Acceleración Z: Rojo
+        ];
+        const colorsGyros = [
+            'rgba(142, 68, 173, 1)',   // Giroscopio X: Púrpura
+            'rgba(243, 156, 18, 1)',   // Giroscopio Y: Naranja
+            'rgba(46, 204, 113, 1)'    // Giroscopio Z: Verde claro
+        ];
+        const ctx1 = document.getElementById('chart1').getContext('2d');
+        const chart1 = new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: colorsAccel.map((color, index) => ({
+                    label: `Dataset ${index}`,
+                    data: [],
+                    borderColor: color,
+                    borderWidth: 1
+                }))
+            },
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Testeo de Sensores'
+                    }
+                }
+            }
+        });
+        const ctx2 = document.getElementById('chart2').getContext('2d');
+        const chart2 = new Chart(ctx2, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: colorsGyros.map((color, index) => ({
+                    label: `Dataset ${index}`,
+                    data: [],
+                    borderColor: color,
+                    borderWidth: 1
+                }))
+            },
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Comprobación de datos'
+                    }
+                }
+            }
+        });
+        chart1.options.plugins.title.text = "Aceleraciones"
+        chart1.data.datasets[0].label = "Acceleración X";
+        chart1.data.datasets[1].label = "Acceleración Y";
+        chart1.data.datasets[2].label = "Acceleración Z";
+        chart2.options.plugins.title.text = "Giroscopios"
+        chart2.data.datasets[0].label = "Giroscopio X";
+        chart2.data.datasets[1].label = "Giroscopio Y";
+        chart2.data.datasets[2].label = "Giroscopio Z";
+    </script>
+</body>
+</html>
