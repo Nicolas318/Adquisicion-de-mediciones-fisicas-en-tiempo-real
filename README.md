@@ -13,4 +13,4 @@ Este proyecto implementa un sistema para la captura, procesamiento y visualizaci
 
 1. **Clonar el repositorio:**
    ```bash
-   git clone https://github.com/tu-usuario/tu-repositorio.git
+   git clone https://github.com/Nicolas318/Adquisicion-de-mediciones-fisicas-en-tiempo-real.git
