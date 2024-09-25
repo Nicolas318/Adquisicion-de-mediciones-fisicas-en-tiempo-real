@@ -25,13 +25,11 @@ WiFiUDP Udp;
 #define BYTESPORMUESTRA 28
 #define MUESTRASPORENVIO 20
 #define PACKETSIZE (MUESTRASPORENVIO * BYTESPORMUESTRA)
-float SensorData[DATOSPORMUESTRA];
-byte ByteArray[BYTESPORMUESTRA];
-byte ByteArrayEnvio[PACKETSIZE];
+#define UPDPORT 12345
 
 
 // Contadores
-int hayMuestra = 0;
+int contadorMuestras = 0;
 int startNumber = 0;
 long inicio = 0;
 byte* byteArrayEnvio;
@@ -111,8 +109,10 @@ void copyArrays(byte* array1, byte* array2, int numeroMuestrasAcumuladas) {
  * @brief Espera recibir un mensaje de inicio ("START") desde el servidor.
  * 
  * La función se ejecuta en un bucle hasta que se recibe el mensaje "START".
- * También extrae la IP y el puerto del servidor, y el número de inicio.
+ * La función también extrae el número de segundos que estará activa 
+ * la adquisición de datos
  */
+
 void waitForStartMessage() {
   while (true) {
     // Comprobar si hay datos disponibles
@@ -173,6 +173,7 @@ void waitForStopMessage() {
  * @brief Espera recibir un mensaje de saludo ("HELLO") desde el servidor.
  * 
  * La función se ejecuta en un bucle hasta que se recibe el mensaje "HELLO".
+ * También extrae la IP y el puerto del servidor
  */
 void waitForHandshake(){
   while(1){
@@ -222,13 +223,13 @@ void sendBroadcastMessage(){
  * 
  * La función combina los datos de las muestras acumuladas en un array de bytes y los envía al servidor. Luego, limpia el buffer de datos y espera un mensaje de parada ("STOP") del servidor para reiniciar la espera del mensaje de inicio ("START").
  * 
- * @param ByteArrayEnvio Array de bytes que contiene los datos de las muestras acumuladas que se van a enviar.
+ * @param byteArrayEnvio Array de bytes que contiene los datos de las muestras acumuladas que se van a enviar.
  * @param byteArray Array de bytes que contiene los datos de la muestra actual que se va a agregar al buffer.
  * @param numeroMuestrasAcumuladas Número de muestras acumuladas en el buffer de envío.
  */
-void sendSamples(byte* ByteArrayEnvio, byte* byteArray, int numeroMuestrasAcumuladas){
+void sendSamples(byte* byteArrayEnvio, byte* byteArray, int numeroMuestrasAcumuladas){
   // Copiar los datos de la muestra actual al buffer de envío
-  copyArrays(byteArrayEnvio, byteArray, hayMuestra);
+  copyArrays(byteArrayEnvio, byteArray, contadorMuestras);
   
   // Iniciar el paquete UDP a la dirección IP del servidor y puerto
   Udp.beginPacket(serverIP, serverPort);
@@ -240,7 +241,7 @@ void sendSamples(byte* ByteArrayEnvio, byte* byteArray, int numeroMuestrasAcumul
   Udp.endPacket();
   
   // Reiniciar el contador de muestras acumuladas
-  hayMuestra = 0;
+  contadorMuestras = 0;
   
   // Liberar la memoria del buffer de envío
   free(byteArrayEnvio);
@@ -263,7 +264,7 @@ void setup() {
   }
   
   // Iniciar UDP
-  Udp.begin(12345);  // El puerto no importa para el envío
+  Udp.begin(UPDPORT);  // El puerto no importa para el envío
 
   // Iniciar el sensor IMU
   if (!IMU.begin()) {
@@ -288,19 +289,19 @@ void loop() {
     floatToByte(sensorData, byteArray);
     free(sensorData);
 
-    if (hayMuestra == 0) {
+    if (contadorMuestras == 0) {
       // Si no hay muestras acumuladas, reservar memoria para el envío
       byteArrayEnvio = (byte*)(malloc(PACKETSIZE * sizeof(byte)));
-      copyArrays(byteArrayEnvio, byteArray, hayMuestra);
-      hayMuestra++;
+      copyArrays(byteArrayEnvio, byteArray, contadorMuestras);
+      contadorMuestras++;
     } else {
-      if (hayMuestra < MUESTRASPORENVIO - 1) {
+      if (contadorMuestras < MUESTRASPORENVIO - 1) {
         // Acumular muestras hasta alcanzar MUESTRASPORENVIO
-        copyArrays(byteArrayEnvio, byteArray, hayMuestra);
-        hayMuestra++;
+        copyArrays(byteArrayEnvio, byteArray, contadorMuestras);
+        contadorMuestras++;
       } else {
         // Al alcanzar el número de muestras, enviar los datos por UDP
-        sendSamples(byteArrayEnvio, byteArray, hayMuestra);
+        sendSamples(byteArrayEnvio, byteArray, contadorMuestras);
       }
     }
     free(byteArray);
