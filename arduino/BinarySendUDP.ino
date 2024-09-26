@@ -31,7 +31,7 @@ WiFiUDP Udp;
 // Contadores
 int contadorMuestras = 0;
 int startNumber = 0;
-long inicio = 0;
+long tiempoInicioCaptura = 0;
 byte* byteArrayEnvio;
 
 /**
@@ -53,7 +53,7 @@ void accelerometerPlusgyroscope(float* buffer) {
     buffer[4] = y;
     buffer[5] = z;
   }
-  buffer[6] = millis() - inicio;
+  buffer[6] = millis() - tiempoInicioCaptura;
 }
 
 /**
@@ -136,7 +136,7 @@ void waitForStartMessage() {
             startNumber = atoi(token);
           }
           // Guardar el tiempo de inicio
-          inicio = millis();
+          tiempoInicioCaptura = millis();
           return;  // Salir del bucle
         }
       }
@@ -281,7 +281,7 @@ void setup() {
 
 void loop() {
   // Comprobar si el tiempo de ejecución no ha superado el tiempo especificado por startNumber
-  if (startNumber == 0 || startNumber * 1000 > (millis() - inicio)) {
+  if (startNumber == 0 || startNumber * 1000 > (millis() - tiempoInicioCaptura)) {
     // Convertimos los datos de los sensores en un array de bytes
     float* sensorData = (float*)(malloc(DATOSPORMUESTRA * sizeof(float)));
     byte* byteArray = (byte*)(malloc(BYTESPORMUESTRA * sizeof(byte)));
