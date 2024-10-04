@@ -208,8 +208,12 @@
         }
 
         function saveFile() {
-            const fileName = document.getElementById('fileName').value;
+            let fileName = document.getElementById('fileName').value;
             if (fileName) {
+                // Obtener la fecha actual en formato YYYY-MM-DD
+                const today = new Date();
+                const datePrefix = today.toISOString().split('T')[0]; // Obtener solo la fecha en formato YYYY-MM-DD
+                fileName = `${datePrefix}_${fileName}`; // Concatenar fecha y nombre del archivo
                 saveFileContainer.classList.add('hidden');
                 fetch(`/download_csv?filename=${fileName}`)
                     .then(response => response.blob())
