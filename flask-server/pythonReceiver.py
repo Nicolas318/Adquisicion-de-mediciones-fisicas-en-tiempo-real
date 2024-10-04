@@ -71,11 +71,13 @@ def show_results(data):
         with open('data.csv', 'a', newline='') as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerow([timestamp, accelerometer_x, accelerometer_y, accelerometer_z, gyro_x, gyro_y, gyro_z])
+            csvfile.close()
 
 # Función para enviar mensaje de inicio al Arduino
 def send_start_message(start_number):
     if ARDUINO_IP != '':
         try:
+            print("Eliminamos el archivo.csv /send_start_message()")
             os.remove('data.csv')
             print(f"File {'data.csv'} deleted successfully.")
         except FileNotFoundError:
@@ -201,6 +203,7 @@ def download_csv():
 
     # Eliminamos el archivo.csv
     try:
+        print("Eliminamos el archivo.csv /download()")
         os.remove(input_file)
         print(f"File {input_file} deleted successfully.")
     except FileNotFoundError:
