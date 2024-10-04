@@ -72,23 +72,11 @@ void floatToByte(float* floatToTransform, byte* byteArray) {
   byte* byteArray7 = (byte*)&floatToTransform[6];
   for (int i = 0; i < 4; i++) {
     byteArray[i] = byteArray1[i];
-  }
-  for (int i = 0; i < 4; i++) {
     byteArray[4 + i] = byteArray2[i];
-  }
-  for (int i = 0; i < 4; i++) {
     byteArray[8 + i] = byteArray3[i];
-  }
-  for (int i = 0; i < 4; i++) {
     byteArray[12 + i] = byteArray4[i];
-  }
-  for (int i = 0; i < 4; i++) {
     byteArray[16 + i] = byteArray5[i];
-  }
-  for (int i = 0; i < 4; i++) {
     byteArray[20 + i] = byteArray6[i];
-  }
-  for (int i = 0; i < 4; i++) {
     byteArray[24 + i] = byteArray7[i];
   }
 }
@@ -100,11 +88,12 @@ void floatToByte(float* floatToTransform, byte* byteArray) {
  * @param array2 Array de origen desde donde se copiarán los valores.
  * @param numeroMuestrasAcumuladas Número de muestras ya acumuladas en array1.
  */
-void copyArrays(byte* array1, byte* array2, int numeroMuestrasAcumuladas) {
+void copyArrays(byte* arrayDestino, byte* arrayOrigen, int numeroMuestrasAcumuladas) {
   for (int i = 0; i < BYTESPORMUESTRA; i++) {
-    array1[i + BYTESPORMUESTRA * numeroMuestrasAcumuladas] = array2[i];
+    arrayDestino[i + BYTESPORMUESTRA * numeroMuestrasAcumuladas] = arrayOrigen[i];
   }
 }
+
 /**
  * @brief Espera recibir un mensaje de inicio ("START") desde el servidor.
  * 
@@ -112,7 +101,6 @@ void copyArrays(byte* array1, byte* array2, int numeroMuestrasAcumuladas) {
  * La función también extrae el número de segundos que estará activa 
  * la adquisición de datos
  */
-
 void waitForStartMessage() {
   while (true) {
     // Comprobar si hay datos disponibles
@@ -190,8 +178,6 @@ void waitForHandshake(){
         if(strcmp(packetBuffer, handshakeMessage) == 0){
           serverIP = Udp.remoteIP();  // Guardar la IP del servidor
           serverPort = Udp.remotePort();  // Guardar el puerto del servidor
-          Serial.println(serverIP);
-          Serial.println(serverPort);
           return;  // Salir del bucle
         }
       }
@@ -252,29 +238,22 @@ void sendSamples(byte* byteArrayEnvio, byte* byteArray, int numeroMuestrasAcumul
 
 
 void setup() {
-
-    Serial.begin(9600);
   // Conectar a la red WiFi
   WiFi.begin(ssid, password);
-
   // Esperar a que se establezca la conexión WiFi
   while (WiFi.status() != WL_CONNECTED) {
     delay(100);  // Esperar antes de intentar de nuevo
     WiFi.begin(ssid, password);  // Intentar conectar de nuevo
   }
-  
   // Iniciar UDP
   Udp.begin(UPDPORT);  // El puerto no importa para el envío
-
   // Iniciar el sensor IMU
   if (!IMU.begin()) {
     // Si el IMU no se inicializa correctamente, entrar en un bucle infinito
     while (1);
   }
-  
   // Enviar un mensaje de difusión y esperar una respuesta de saludo
   sendBroadcastMessage();
-  
   // Esperar a recibir el mensaje de inicio ("START") desde el servidor
   waitForStartMessage();
 }
@@ -288,7 +267,6 @@ void loop() {
     accelerometerPlusgyroscope(sensorData);
     floatToByte(sensorData, byteArray);
     free(sensorData);
-
     if (contadorMuestras == 0) {
       // Si no hay muestras acumuladas, reservar memoria para el envío
       byteArrayEnvio = (byte*)(malloc(PACKETSIZE * sizeof(byte)));
@@ -306,8 +284,18 @@ void loop() {
     }
     free(byteArray);
   } else {
+    //Comprobar que no se ha quedado ninguna muestra en byteArrayEnvio
+    if(byteArrayEnvio[0] != NULL){
+      for(int i = contadorMuestras * BYTESPORMUESTRA; i <= PACKETSIZE; i++){
+          byteArrayEnvio[i] = 0x00;
+      }
+      Udp.beginPacket(serverIP, serverPort);
+      Udp.write(byteArrayEnvio, PACKETSIZE);
+      Udp.endPacket();
+      free(byteArrayEnvio);
+      contadorMuestras = 0;
+    }
     // Si el tiempo ha superado startNumber * 1000 ms, esperar el mensaje de inicio nuevamente
     waitForStartMessage();
   }
 }
-
