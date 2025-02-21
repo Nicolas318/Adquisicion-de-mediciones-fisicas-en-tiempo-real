@@ -71,7 +71,6 @@ def show_results(data):
         with open('data.csv', 'a', newline='') as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerow([timestamp, accelerometer_x, accelerometer_y, accelerometer_z, gyro_x, gyro_y, gyro_z])
-            csvfile.close()
 
 # Función para enviar mensaje de inicio al Arduino
 def send_start_message(start_number):
@@ -86,17 +85,17 @@ def send_start_message(start_number):
             print(f"Permission denied: Unable to delete {'data.csv'}.")
         except Exception as e:
             print(f"Error occurred while deleting file {'data.csv'}: {e}")
+
         start_message = f"START;{start_number}".encode()  # Codifica el mensaje de inicio con el número especificado
 
         server_socket.sendto(start_message, (ARDUINO_IP, ARDUINO_PORT))
-
+        print(f"Temporizado de {start_number}")
 
 # Función para enviar mensaje de parada al Arduino
 def send_stop_message():
     if ARDUINO_IP != '':
         stop_message = b"STOP"  # Define el mensaje de parada como una secuencia de bytes
         server_socket.sendto(stop_message, (ARDUINO_IP, ARDUINO_PORT))
-
 
 def test_sensors():
     if ARDUINO_IP != '':
@@ -135,7 +134,6 @@ def start_udp_server():
         data, addr = server_socket.recvfrom(BUFFER_SIZE)  # Esperar a que lleguen datos
         # Procesar los datos recibidos
         show_results(data)
-
 
 # Rutas de Flask
 @app.route('/')
@@ -187,7 +185,8 @@ def download_csv():
 
     with open(input_file, mode='r', newline='') as file:
         reader = csv.reader(file)
-        headers = next(reader)  # Leer las cabeceras
+        headers = "timestamp", "accelerometer_x", "accelerometer_y", "accelerometer_z", "gyro_x", "gyro_y", "gyro_z"
+        print(headers)
         for row in reader:
             # Aquí puedes procesar cada fila según sea necesario
             processed_data.append(row)
